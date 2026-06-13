@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AccidentAI — Road Safety Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --red:#FF2D2D;--amber:#FF9500;--green:#00C37F;
+    --bg:#0A0A0C;--bg2:#111114;--bg3:#18181d;
+    --border:rgba(255,255,255,0.07);
+    --text:#F0EEE8;--muted:#6B6A72;
+    --font-d:'Syne',sans-serif;--font-m:'Space Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-d);min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:1000;}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 2rem;border-bottom:1px solid var(--border);background:rgba(10,10,12,0.95);backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;}
+  .logo{display:flex;align-items:center;gap:12px;}
+  .logo-icon{width:36px;height:36px;background:var(--red);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;animation:pulse-icon 2s ease-in-out infinite;}
+  @keyframes pulse-icon{0%,100%{box-shadow:0 0 0 0 rgba(255,45,45,0.4);}50%{box-shadow:0 0 0 8px rgba(255,45,45,0);}}
+  .logo-text{font-size:1.2rem;font-weight:800;letter-spacing:-0.5px;}
+  .logo-text span{color:var(--red);}
+  .live-badge{display:flex;align-items:center;gap:6px;background:rgba(255,45,45,0.1);border:1px solid rgba(255,45,45,0.3);border-radius:20px;padding:4px 12px;font-size:11px;font-family:var(--font-m);color:var(--red);letter-spacing:1px;}
+  .live-dot{width:6px;height:6px;background:var(--red);border-radius:50%;animation:blink 1.2s ease-in-out infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.2;}}
+
+  main{max-width:1280px;margin:0 auto;padding:2rem;}
+
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem;}
+  .stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1.25rem 1.5rem;position:relative;overflow:hidden;}
+  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+  .stat-card.red::before{background:var(--red);}
+  .stat-card.amber::before{background:var(--amber);}
+  .stat-card.green::before{background:var(--green);}
+  .stat-card.blue::before{background:#3B9EFF;}
+  .stat-label{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-family:var(--font-m);margin-bottom:8px;}
+  .stat-value{font-size:2.2rem;font-weight:800;line-height:1;}
+  .stat-card.red .stat-value{color:var(--red);}
+  .stat-card.amber .stat-value{color:var(--amber);}
+  .stat-card.green .stat-value{color:var(--green);}
+  .stat-card.blue .stat-value{color:#3B9EFF;}
+  .stat-sub{font-size:11px;color:var(--muted);margin-top:4px;font-family:var(--font-m);}
+
+  .content-grid{display:grid;grid-template-columns:1fr 380px;gap:1.5rem;}
+  .panel{background:var(--bg2);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+  .panel-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid var(--border);}
+  .panel-title{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-family:var(--font-m);}
+
+  /* Upload */
+  .upload-zone{margin:1.5rem;border:2px dashed rgba(255,255,255,0.1);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;}
+  .upload-zone:hover,.upload-zone.drag-over{border-color:var(--red);background:rgba(255,45,45,0.04);}
+  .upload-zone input{display:none;}
+  .upload-icon{font-size:2.5rem;margin-bottom:0.75rem;display:block;}
+  .upload-title{font-size:1rem;font-weight:700;margin-bottom:4px;}
+  .upload-sub{font-size:11px;color:var(--muted);font-family:var(--font-m);}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 24px;border-radius:8px;font-family:var(--font-d);font-weight:700;font-size:14px;cursor:pointer;border:none;transition:all 0.15s;}
+  .btn-red{background:var(--red);color:white;}
+  .btn-red:hover{background:#e02020;transform:translateY(-1px);}
+  .btn-red:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+  .btn-ghost:hover{border-color:rgba(255,255,255,0.2);color:var(--text);}
+
+  /* Selected file chip */
+  .file-chip{display:none;align-items:center;gap:10px;margin:0 1.5rem;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;font-family:var(--font-m);color:var(--muted);}
+  .file-chip span{color:var(--text);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;}
+  .file-chip-remove{cursor:pointer;margin-left:auto;color:var(--muted);font-size:16px;line-height:1;}
+  .file-chip-remove:hover{color:var(--red);}
+
+  /* Analyze button row */
+  .analyze-row{display:none;padding:1rem 1.5rem;gap:8px;flex-direction:column;}
+
+  /* Progress */
+  .progress-wrap{display:none;margin:0 1.5rem;}
+  .progress-label{display:flex;justify-content:space-between;font-size:11px;font-family:var(--font-m);color:var(--muted);margin-bottom:6px;}
+  .progress-bar{height:4px;background:var(--bg3);border-radius:4px;overflow:hidden;}
+  .progress-fill{height:100%;background:var(--red);border-radius:4px;width:0%;transition:width 0.3s ease;}
+
+  /* Video — shown AFTER analyze */
+  .video-wrap{display:none;margin:1.5rem;border-radius:10px;overflow:hidden;background:#000;position:relative;}
+  .video-wrap video{width:100%;display:block;max-height:340px;object-fit:contain;}
+  .video-badge{position:absolute;top:10px;left:10px;background:rgba(255,45,45,0.92);color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;font-family:var(--font-m);display:none;animation:blink 0.8s ease-in-out infinite;}
+
+  /* Modal overlay */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;align-items:center;justify-content:center;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--bg2);border:1px solid rgba(255,45,45,0.5);border-radius:16px;width:100%;max-width:480px;overflow:hidden;animation:modal-in 0.35s ease;}
+  @keyframes modal-in{from{opacity:0;transform:scale(0.93);}to{opacity:1;transform:scale(1);}}
+  .modal-header{background:var(--red);padding:14px 20px;font-size:14px;font-weight:800;text-align:center;letter-spacing:1.5px;animation:alert-flash 1s ease-in-out 3;}
+  @keyframes alert-flash{0%,100%{background:var(--red);}50%{background:#cc1f1f;}}
+  .modal-body{padding:0;}
+  .modal-row{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid rgba(255,45,45,0.12);font-size:13px;}
+  .modal-row:last-of-type{border-bottom:none;}
+  .modal-key{color:var(--muted);font-family:var(--font-m);font-size:11px;letter-spacing:0.5px;}
+  .conf-badge{background:var(--red);color:white;padding:2px 10px;border-radius:20px;font-weight:700;font-size:13px;font-family:var(--font-m);}
+  .hosp-badge{background:rgba(0,195,127,0.15);color:var(--green);border:1px solid rgba(0,195,127,0.3);padding:2px 10px;border-radius:20px;font-size:12px;font-family:var(--font-m);}
+  .call-badge{background:var(--green);color:#000;padding:3px 14px;border-radius:20px;font-weight:700;font-size:13px;}
+  .sev-pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;font-family:var(--font-m);}
+  .sev-severe{background:rgba(255,45,45,0.2);color:var(--red);}
+  .sev-moderate{background:rgba(255,149,0,0.2);color:var(--amber);}
+  .modal-footer{padding:16px 20px;border-top:1px solid var(--border);}
+  .btn-inform{width:100%;padding:12px;background:var(--green);color:#000;font-weight:800;font-size:14px;border:none;border-radius:8px;cursor:pointer;font-family:var(--font-d);letter-spacing:0.5px;transition:all 0.15s;}
+  .btn-inform:hover{background:#00a96c;transform:translateY(-1px);}
+
+  /* Incident log */
+  .incident-list{max-height:620px;overflow-y:auto;}
+  .incident-list::-webkit-scrollbar{width:4px;}
+  .incident-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+  .incident-item{padding:1rem 1.5rem;border-bottom:1px solid var(--border);transition:background 0.15s;}
+  .incident-item:hover{background:var(--bg3);}
+  .incident-item:last-child{border-bottom:none;}
+  .inc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+  .inc-id{font-size:11px;font-family:var(--font-m);color:var(--muted);}
+  .inc-loc{font-size:13px;font-weight:600;margin-bottom:3px;}
+  .inc-meta{font-size:11px;color:var(--muted);font-family:var(--font-m);}
+  .conf-bar{height:3px;background:var(--bg3);border-radius:3px;margin-top:7px;overflow:hidden;}
+  .conf-fill-bar{height:100%;border-radius:3px;background:var(--red);}
+
+  .status-bar{display:flex;align-items:center;gap:8px;padding:8px 1.5rem;background:var(--bg3);border-top:1px solid var(--border);font-size:11px;font-family:var(--font-m);color:var(--muted);}
+  .empty-state{padding:3rem;text-align:center;color:var(--muted);font-family:var(--font-m);font-size:12px;}
+  .empty-state .icon{font-size:2rem;margin-bottom:8px;display:block;}
+
+  /* No accident modal */
+  .clear-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;align-items:center;justify-content:center;}
+  .clear-overlay.open{display:flex;}
+  .clear-modal{background:var(--bg2);border:1px solid rgba(0,195,127,0.4);border-radius:16px;width:100%;max-width:420px;overflow:hidden;animation:modal-in 0.35s ease;text-align:center;padding:2.5rem 2rem;}
+  .clear-icon{font-size:4rem;margin-bottom:1rem;display:block;animation:pop-in 0.5s cubic-bezier(0.175,0.885,0.32,1.275);}
+  @keyframes pop-in{from{transform:scale(0);}to{transform:scale(1);}}
+  .clear-title{font-size:1.4rem;font-weight:800;color:var(--green);margin-bottom:8px;letter-spacing:-0.5px;}
+  .clear-sub{font-size:13px;color:var(--muted);font-family:var(--font-m);margin-bottom:6px;}
+  .clear-location{font-size:12px;color:var(--text);font-family:var(--font-m);background:var(--bg3);border-radius:8px;padding:8px 14px;margin:12px 0 20px;border:1px solid var(--border);}
+  .btn-clear{width:100%;padding:12px;background:var(--green);color:#000;font-weight:800;font-size:14px;border:none;border-radius:8px;cursor:pointer;font-family:var(--font-d);transition:all 0.15s;}
+  .btn-clear:hover{background:#00a96c;transform:translateY(-1px);}
+
+  /* Demo tab */
+  .demo-btns{padding:1.5rem;display:flex;gap:8px;flex-wrap:wrap;}
+
+  @media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr);}.content-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<!-- Alert sound -->
+<audio id="alert-sound" preload="auto">
+  <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbz6xnPzJob6fX3tGyf1JAV4S528ugg0k1PlCB0d3VsYZeRENlm8zYzK+JZklEV4Ous7+uelBGS3Omv8TNq4dqX2F6n7CzrJ6Ma2VmcI2nrrGqnY5+d3qHlp+jpKGcl5OTlZibn6GioJ2ZlpSUlZaXmJmam5ydnp+goaGioqKioqKioaChoJ+enp2cm5qZmJeWlpWVlJSUlJWVlpaXmJmam5ydnp+goaKio6SkpKSkpKOjoqGgn56dnBsaGRkZGhscHR4fISIkJigsLjAyNDY4Ojw+QEJERE" type="audio/wav"/>
+</audio>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🚨</div>
+    <div><div class="logo-text">Accident<span>AI</span></div></div>
+  </div>
+  <div style="font-family:var(--font-m);font-size:11px;color:var(--muted)" id="clock"></div>
+  <div class="live-badge"><div class="live-dot"></div> MONITORING</div>
+</header>
+
+<main>
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card red"><div class="stat-label">Total Incidents</div><div class="stat-value" id="stat-total">0</div><div class="stat-sub">detected today</div></div>
+    <div class="stat-card amber"><div class="stat-label">Severe</div><div class="stat-value" id="stat-severe">0</div><div class="stat-sub">critical accidents</div></div>
+    <div class="stat-card blue"><div class="stat-label">Moderate</div><div class="stat-value" id="stat-moderate">0</div><div class="stat-sub">minor accidents</div></div>
+    <div class="stat-card green"><div class="stat-label">Avg Confidence</div><div class="stat-value" id="stat-conf">—</div><div class="stat-sub">AI accuracy</div></div>
+  </div>
+
+  <div class="content-grid">
+    <!-- Left panel -->
+    <div>
+      <div class="panel" style="margin-bottom:1.5rem">
+        <div class="panel-header">
+          <span class="panel-title">Video Analysis</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost" style="padding:6px 14px;font-size:12px" onclick="switchTab('upload')" id="tab-btn-upload">Upload</button>
+            <button class="btn btn-ghost" style="padding:6px 14px;font-size:12px" onclick="switchTab('demo')" id="tab-btn-demo">Demo mode</button>
+          </div>
+        </div>
+
+        <!-- Upload tab -->
+        <div id="tab-upload">
+          <!-- Drop zone -->
+          <div class="upload-zone" id="drop-zone"
+               onclick="document.getElementById('file-input').click()"
+               ondragover="handleDragOver(event)"
+               ondragleave="handleDragLeave(event)"
+               ondrop="handleDrop(event)">
+            <input type="file" id="file-input" accept="video/*" onchange="handleFileSelect(event)"/>
+            <span class="upload-icon">🎥</span>
+            <div class="upload-title">Drop your accident video here</div>
+            <div class="upload-sub" style="margin-bottom:14px">MP4 · AVI · MOV supported</div>
+            <div class="btn btn-red" style="display:inline-flex;pointer-events:none">Choose file</div>
+          </div>
+
+          <!-- Selected file chip -->
+          <div class="file-chip" id="file-chip">
+            <span>🎬</span>
+            <span id="file-name">video.mp4</span>
+            <div class="file-chip-remove" onclick="resetUI()">✕</div>
+          </div>
+
+          <!-- Analyze button (shown after file selected) -->
+          <div class="analyze-row" id="analyze-row" style="display:none;flex-direction:column;padding:1rem 1.5rem;gap:10px">
+            <button class="btn btn-red" id="run-btn" onclick="runDetection()" style="width:100%;justify-content:center;padding:13px">
+              🔍 &nbsp;Analyze Video
+            </button>
+          </div>
+
+          <!-- Progress bar -->
+          <div class="progress-wrap" id="progress-wrap" style="margin-bottom:1.5rem">
+            <div class="progress-label">
+              <span id="progress-text">Analyzing frames...</span>
+              <span id="progress-pct">0%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+          </div>
+
+          <!-- Video shown AFTER analyze -->
+          <div class="video-wrap" id="video-wrap">
+            <video id="video-preview" controls></video>
+            <div class="video-badge" id="video-badge">🚨 ACCIDENT DETECTED</div>
+          </div>
+        </div>
+
+        <!-- Demo tab -->
+        <div id="tab-demo" style="display:none">
+          <div class="demo-btns">
+            <button class="btn btn-red" onclick="simulateDetection('SEVERE',0.94)">🚨 Simulate Severe Accident</button>
+            <button class="btn" style="background:var(--amber);color:#000" onclick="simulateDetection('MODERATE',0.72)">⚠️ Simulate Moderate</button>
+            <button class="btn" style="background:var(--green);color:#000" onclick="simulateNoAccident()">✅ Simulate No Accident</button>
+          </div>
+          <div style="padding:0 1.5rem 1.5rem;font-size:11px;color:var(--muted);font-family:var(--font-m)">
+            Use during your presentation to demo the alert system without a video.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: incident log -->
+    <div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Incident Log</span>
+          <span style="font-size:11px;font-family:var(--font-m);color:var(--muted)" id="log-count">0 records</span>
+        </div>
+        <div class="incident-list" id="incident-list">
+          <div class="empty-state"><span class="icon">📋</span>No incidents yet.<br>Upload a video to begin.</div>
+        </div>
+        <div class="status-bar">
+          <span>●</span><span id="status-text">Ready — upload a video to start</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- No Accident Modal -->
+<div class="clear-overlay" id="clear-overlay">
+  <div class="clear-modal">
+    <span class="clear-icon">✅</span>
+    <div class="clear-title">All Clear — No Accident Detected</div>
+    <div class="clear-sub">AI analysis complete. No vehicle accident found in this footage.</div>
+    <div class="clear-location" id="clear-location">📍 NH-48, Delhi-Gurgaon Highway</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;justify-content:center;font-family:var(--font-m);font-size:11px;color:var(--muted)">
+      <span>🎯 Confidence threshold: 75%</span>
+      <span>·</span>
+      <span id="clear-frames">0 frames analyzed</span>
+    </div>
+    <button class="btn-clear" onclick="closeClearModal()">👍 &nbsp; Understood — Continue Monitoring</button>
+  </div>
+</div>
+
+<!-- Alert Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">🚨 &nbsp; ACCIDENT DETECTED — DISPATCH AMBULANCE NOW &nbsp; 🚨</div>
+    <div class="modal-body">
+      <div class="modal-row">
+        <span class="modal-key">TIME OF DETECTION</span>
+        <span id="m-time" style="font-family:var(--font-m);font-size:12px"></span>
+      </div>
+      <div class="modal-row">
+        <span class="modal-key">LOCATION</span>
+        <span id="m-location" style="font-weight:700;font-size:13px"></span>
+      </div>
+      <div class="modal-row">
+        <span class="modal-key">SEVERITY</span>
+        <span class="sev-pill" id="m-severity"></span>
+      </div>
+      <div class="modal-row">
+        <span class="modal-key">AI CONFIDENCE</span>
+        <span class="conf-badge" id="m-conf"></span>
+      </div>
+      <div class="modal-row">
+        <span class="modal-key">NEAREST HOSPITAL</span>
+        <span class="hosp-badge" id="m-hospital"></span>
+      </div>
+      <div class="modal-row">
+        <span class="modal-key">EMERGENCY NO.</span>
+        <span class="call-badge">📞 112 / 108</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-inform" onclick="closeModal()">✅ &nbsp; Hospital Informed — Close Alert</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Your Colab server URL — update this every time Colab restarts ──
+var API_URL = "https://3bc1-34-124-140-118.ngrok-free.app";
+
+var incidents = [];
+var videoFile = null;
+
+function updateClock(){
+  document.getElementById('clock').textContent =
+    new Date().toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'medium'});
+}
+setInterval(updateClock,1000);
+updateClock();
+
+function switchTab(name){
+  document.getElementById('tab-upload').style.display = name==='upload'?'block':'none';
+  document.getElementById('tab-demo').style.display   = name==='demo'?'block':'none';
+  document.getElementById('tab-btn-upload').style.color = name==='upload'?'#fff':null;
+  document.getElementById('tab-btn-demo').style.color   = name==='demo'?'#fff':null;
+}
+
+function handleDragOver(e){e.preventDefault();document.getElementById('drop-zone').classList.add('drag-over');}
+function handleDragLeave(){document.getElementById('drop-zone').classList.remove('drag-over');}
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  var f=e.dataTransfer.files[0];
+  if(f&&f.type.startsWith('video/')) loadFile(f);
+}
+function handleFileSelect(e){var f=e.target.files[0];if(f)loadFile(f);}
+
+function loadFile(f){
+  videoFile = f;
+  document.getElementById('file-name').textContent = f.name;
+  document.getElementById('file-chip').style.display='flex';
+  document.getElementById('drop-zone').style.display='none';
+  document.getElementById('analyze-row').style.display='flex';
+  setStatus('File loaded — click Analyze Video');
+}
+
+function runDetection(){
+  var btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳  Analyzing...';
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('video-wrap').style.display = 'none';
+
+  // Animate progress while waiting for real result
+  var pct = 0;
+  var stages = ['Uploading video...','Running AI model...','Detecting accidents...','Finalizing...'];
+  var progressInterval = setInterval(function(){
+    pct += Math.random()*3 + 1;
+    if(pct >= 90) pct = 90;  // hold at 90% until real result comes back
+    document.getElementById('progress-fill').style.width = Math.round(pct) + '%';
+    document.getElementById('progress-pct').textContent = Math.round(pct) + '%';
+    var si = Math.min(3, Math.floor(pct/23));
+    document.getElementById('progress-text').textContent = stages[si];
+  }, 200);
+
+  // Send video to your real Colab YOLO model
+  var formData = new FormData();
+  formData.append('video', videoFile);
+
+  fetch(API_URL + '/analyze', {
+    method: 'POST',
+    body: formData
+  })
+  .then(function(res){ return res.json(); })
+  .then(function(data){
+    clearInterval(progressInterval);
+    document.getElementById('progress-fill').style.width = '100%';
+    document.getElementById('progress-pct').textContent = '100%';
+
+    // Show video after analysis
+    var url = URL.createObjectURL(videoFile);
+    document.getElementById('video-preview').src = url;
+    document.getElementById('video-wrap').style.display = 'block';
+    btn.textContent = '✅  Analysis Done';
+
+    setTimeout(function(){
+      if(data.accident_detected){
+        document.getElementById('video-badge').style.display = 'block';
+        showModalWithData(data);
+        setStatus('Accident detected — alert dispatched!');
+      } else {
+        showClearModal(data.frames_analyzed, data.location);
+        setStatus('Analysis complete — no accident found ✅');
+      }
+    }, 500);
+  })
+  .catch(function(err){
+    clearInterval(progressInterval);
+    btn.disabled = false;
+    btn.textContent = '🔍  Analyze Video';
+    document.getElementById('progress-wrap').style.display = 'none';
+    setStatus('❌ Cannot connect to Colab — is Cell 5 running?');
+    console.error(err);
+  });
+}
+
+function showModalWithData(data){
+  // Uses REAL data from your YOLO model
+  document.getElementById('m-time').textContent     = data.timestamp;
+  document.getElementById('m-location').textContent = data.location;
+  document.getElementById('m-severity').textContent = data.severity;
+  document.getElementById('m-severity').className   = 'sev-pill '+(data.severity==='SEVERE'?'sev-severe':'sev-moderate');
+  document.getElementById('m-conf').textContent     = Math.round(data.confidence*100)+'%';
+  document.getElementById('m-hospital').textContent = data.hospital;
+  document.getElementById('modal-overlay').classList.add('open');
+  playAlertSound();
+
+  incidents.unshift({
+    id:         incidents.length+1,
+    time:       new Date(),
+    location:   data.location,
+    severity:   data.severity,
+    confidence: data.confidence,
+    hospital:   data.hospital,
+  });
+  updateStats();
+  renderLog();
+}
+
+function showClearModal(frames, location){
+  var loc = location || "NH-48, Delhi-Gurgaon Highway";
+  document.getElementById('clear-location').textContent = '📍 ' + loc;
+  document.getElementById('clear-frames').textContent   = (frames||450) + ' frames analyzed';
+  document.getElementById('clear-overlay').classList.add('open');
+}
+
+function closeClearModal(){
+  document.getElementById('clear-overlay').classList.remove('open');
+}
+
+function simulateDetection(sev,conf){showModal(sev,conf);}
+function simulateNoAccident(){showClearModal(450);}
+
+function showModal(sev,conf){
+  var demoLocations = [
+    {loc:"NH-48, Delhi-Gurgaon Highway",  hosp:"Medanta Hospital, Gurgaon"},
+    {loc:"Connaught Place, New Delhi",     hosp:"Ram Manohar Lohia Hospital"},
+    {loc:"DND Flyway, Noida",             hosp:"Kailash Hospital, Noida"},
+  ];
+  var picked   = demoLocations[Math.floor(Math.random()*demoLocations.length)];
+  var now      = new Date();
+
+  document.getElementById('m-time').textContent =
+    now.toLocaleString('en-IN',{dateStyle:'long',timeStyle:'medium'});
+  document.getElementById('m-location').textContent  = picked.loc;
+  document.getElementById('m-severity').textContent  = sev;
+  document.getElementById('m-severity').className    = 'sev-pill '+(sev==='SEVERE'?'sev-severe':'sev-moderate');
+  document.getElementById('m-conf').textContent      = Math.round(conf*100)+'%';
+  document.getElementById('m-hospital').textContent  = picked.hosp;
+  document.getElementById('modal-overlay').classList.add('open');
+  playAlertSound();
+
+  incidents.unshift({id:incidents.length+1,time:now,location:picked.loc,severity:sev,confidence:conf,hospital:picked.hosp});
+  updateStats();
+  renderLog();
+}
+
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('open');
+  setStatus('Hospital informed. Monitoring continues...');
+}
+
+function playAlertSound(){
+  try{
+    var ctx = new (window.AudioContext||window.webkitAudioContext)();
+    function beep(freq,start,dur){
+      var o=ctx.createOscillator();
+      var g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type='square';o.frequency.value=freq;
+      g.gain.setValueAtTime(0.3,ctx.currentTime+start);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+start+dur);
+      o.start(ctx.currentTime+start);
+      o.stop(ctx.currentTime+start+dur);
+    }
+    beep(880,0,0.15);
+    beep(880,0.2,0.15);
+    beep(1100,0.4,0.3);
+  }catch(e){}
+}
+
+function updateStats(){
+  document.getElementById('stat-total').textContent    = incidents.length;
+  document.getElementById('stat-severe').textContent   = incidents.filter(function(i){return i.severity==='SEVERE';}).length;
+  document.getElementById('stat-moderate').textContent = incidents.filter(function(i){return i.severity==='MODERATE';}).length;
+  var avg = incidents.reduce(function(s,i){return s+i.confidence;},0)/incidents.length;
+  document.getElementById('stat-conf').textContent = Math.round(avg*100)+'%';
+}
+
+function renderLog(){
+  var list=document.getElementById('incident-list');
+  document.getElementById('log-count').textContent=incidents.length+' records';
+  if(!incidents.length){
+    list.innerHTML='<div class="empty-state"><span class="icon">📋</span>No incidents yet.</div>';
+    return;
+  }
+  list.innerHTML=incidents.map(function(inc){
+    var fillColor=inc.severity==='SEVERE'?'var(--red)':'var(--amber)';
+    return '<div class="incident-item">'
+      +'<div class="inc-top">'
+      +'<span class="inc-id">#'+String(inc.id).padStart(3,'0')+' · '+inc.time.toLocaleTimeString('en-IN')+'</span>'
+      +'<span class="sev-pill '+(inc.severity==='SEVERE'?'sev-severe':'sev-moderate')+'">'+inc.severity+'</span>'
+      +'</div>'
+      +'<div class="inc-loc">📍 '+inc.location+'</div>'
+      +'<div class="inc-meta">🏥 '+inc.hospital+'</div>'
+      +'<div class="conf-bar"><div class="conf-fill-bar" style="width:'+Math.round(inc.confidence*100)+'%;background:'+fillColor+'"></div></div>'
+      +'<div style="font-size:10px;font-family:var(--font-m);color:var(--muted);margin-top:3px;text-align:right">'+Math.round(inc.confidence*100)+'% confidence</div>'
+      +'</div>';
+  }).join('');
+}
+
+function resetUI(){
+  videoFile=null;
+  document.getElementById('drop-zone').style.display='block';
+  document.getElementById('file-chip').style.display='none';
+  document.getElementById('analyze-row').style.display='none';
+  document.getElementById('progress-wrap').style.display='none';
+  document.getElementById('video-wrap').style.display='none';
+  document.getElementById('video-badge').style.display='none';
+  document.getElementById('progress-fill').style.width='0%';
+  document.getElementById('run-btn').disabled=false;
+  document.getElementById('run-btn').textContent='🔍  Analyze Video';
+  document.getElementById('file-input').value='';
+  setStatus('Ready — upload a video to start');
+}
+
+function setStatus(msg){document.getElementById('status-text').textContent=msg;}
+</script>
+</body>
+</html>
